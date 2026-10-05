@@ -9,3 +9,6 @@ sqlalchemy
 psycopg[binary]
 faiss-cpu
 pytest
+fastapi
+uvicorn[standard]
+httpx

@@ -4,8 +4,12 @@ services:
     container_name: ai-engineer-app
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://agent:agentpass@postgres:5432/ai_engineer
     depends_on:
       - postgres
+    ports:
+      - "8000:8000"
 
   postgres:
     image: postgres:17
