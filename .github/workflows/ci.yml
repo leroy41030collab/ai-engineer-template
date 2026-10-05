@@ -34,8 +34,13 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
+            - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Initialize database
+        env:
+          DATABASE_URL: postgresql+psycopg://agent:agentpass@localhost:5432/ai_engineer
+        run: python -m src.database.init_db
 
       - name: Run tests
         env:
