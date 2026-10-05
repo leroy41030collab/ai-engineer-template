@@ -37,8 +37,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Initialize database
+            - name: Initialize database
         env:
+          OPENAI_API_KEY: test-key
           DATABASE_URL: postgresql+psycopg://agent:agentpass@localhost:5432/ai_engineer
         run: python -m src.database.init_db
 
