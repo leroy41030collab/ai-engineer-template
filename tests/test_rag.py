@@ -2,10 +2,13 @@ from langchain_core.documents import Document
 
 from src.rag.ingestion import load_documents, split_documents
 from src.rag.rag import answer_question
+from src.rag.vector_store import hybrid_search_with_scores
 from src.rag.vector_store import (
     get_or_build_vector_store,
     search_with_scores,
 )
+
+
 
 
 def test_load_documents_reads_txt_and_metadata(tmp_path):
@@ -286,3 +289,40 @@ def test_rebuilds_vector_store_when_documents_change(
     assert updated_manifest["fingerprint"] == (
         module._documents_fingerprint(new_documents)
     )
+
+def test_hybrid_search_combines_semantic_and_keyword_results():
+    from langchain_core.documents import Document
+
+    semantic_document = Document(
+        page_content="Informazioni generali sul territorio.",
+        metadata={"filename": "generale.txt"},
+    )
+    keyword_document = Document(
+        page_content="Il servizio XZ-42 è disponibile a Sorbara.",
+        metadata={"filename": "servizio.txt"},
+    )
+
+    class FakeVectorStore:
+        index = type("FakeIndex", (), {"ntotal": 2})()
+
+        def similarity_search_with_score(self, query, k):
+            assert query == "XZ-42 Sorbara"
+            assert k == 2
+            return [
+                (semantic_document, 0.2),
+                (keyword_document, 0.4),
+            ]
+
+    results = hybrid_search_with_scores(
+        FakeVectorStore(),
+        "XZ-42 Sorbara",
+        k=2,
+    )
+
+    assert len(results) == 2
+    assert all(isinstance(score, float) for _, score in results)
+    assert {doc.metadata["filename"] for doc, _ in results} == {
+        "generale.txt",
+        "servizio.txt",
+    }
+    assert results[0][0].metadata["filename"] == "servizio.txt"

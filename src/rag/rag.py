@@ -7,6 +7,7 @@ from src.rag.vector_store import (
     get_or_build_vector_store,
     search_vector_store,
     search_with_scores,
+    hybrid_search_with_scores,
 )
 
 
@@ -26,8 +27,12 @@ def retrieve_documents(question: str, vector_store, k: int = 4):
 
 
 def retrieve_with_scores(question: str, vector_store, k: int = 4):
-    return search_with_scores(vector_store, question, k=k)
-
+    return hybrid_search_with_scores(
+        vector_store,
+        question,
+        k=k,
+    )
+    
 
 def answer_question(question: str, vector_store) -> dict:
     results = retrieve_with_scores(question, vector_store)

@@ -8,3 +8,6 @@ __pycache__/
 data/local/
 *.db
 *.sqlite
+
+# RAG: indice vettoriale generato localmente
+data/processed/faiss/
