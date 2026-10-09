@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     openai_api_key: str
     openai_model: str = "gpt-5-mini"
     database_url: str = ""
-    rag_max_distance: float = 1.0
+    rag_max_distance: float = 1.1
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -6,7 +6,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
 from src.llm.tool_model import get_model_with_tools
-from src.tools.portal import get_portal_status
+from src.tools.portal import get_portal_status, search_portal_knowledge
 
 
 class AgentState(TypedDict):
@@ -14,8 +14,9 @@ class AgentState(TypedDict):
 
 
 def build_portal_agent():
+    tools = [get_portal_status, search_portal_knowledge]
     model = get_model_with_tools()
-    tool_node = ToolNode([get_portal_status], handle_tool_errors=True)
+    tool_node = ToolNode(tools, handle_tool_errors=True)
 
     def agent(state: AgentState):
         response = model.invoke(state["messages"])
