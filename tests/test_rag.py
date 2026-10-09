@@ -56,7 +56,9 @@ def test_search_with_scores_returns_documents_and_scores():
     assert score == 0.25
 
 
-def test_force_rebuild_rebuilds_vector_store(monkeypatch):
+def test_force_rebuild_rebuilds_vector_store(monkeypatch, tmp_path):
+    import src.rag.vector_store as vector_store_module
+
     expected_store = object()
     build_calls = []
 
@@ -68,15 +70,32 @@ def test_force_rebuild_rebuilds_vector_store(monkeypatch):
         return object()
 
     monkeypatch.setattr(
-        "src.rag.vector_store.build_vector_store",
+        vector_store_module,
+        "VECTOR_STORE_PATH",
+        tmp_path,
+    )
+    monkeypatch.setattr(
+        vector_store_module,
+        "MANIFEST_PATH",
+        tmp_path / "manifest.json",
+    )
+    monkeypatch.setattr(
+        vector_store_module,
+        "build_vector_store",
         fake_build,
     )
     monkeypatch.setattr(
-        "src.rag.vector_store.load_vector_store",
+        vector_store_module,
+        "load_vector_store",
         fake_load,
     )
 
-    documents = ["documento di prova"]
+    documents = [
+        Document(
+            page_content="Documento di prova",
+            metadata={"filename": "prova.txt"},
+        )
+    ]
 
     result = get_or_build_vector_store(
         documents,
@@ -85,7 +104,7 @@ def test_force_rebuild_rebuilds_vector_store(monkeypatch):
 
     assert result is expected_store
     assert build_calls == [documents]
-
+    assert (tmp_path / "manifest.json").exists()
 
 def test_answer_question_ignores_irrelevant_documents(monkeypatch):
     from types import SimpleNamespace
@@ -155,3 +174,115 @@ def test_answer_question_does_not_call_llm_without_relevant_context(
 
     assert "informazioni sufficienti" in result["answer"]
     assert result["sources"] == []
+
+
+def test_reuses_vector_store_when_documents_are_unchanged(
+    monkeypatch,
+    tmp_path,
+):
+    import json
+    import src.rag.vector_store as module
+
+    documents = [
+        Document(
+            page_content="Il portale pubblica eventi.",
+            metadata={"filename": "eventi.txt"},
+        )
+    ]
+
+    existing_store = object()
+    build_calls = []
+
+    monkeypatch.setattr(module, "VECTOR_STORE_PATH", tmp_path)
+    monkeypatch.setattr(
+        module,
+        "MANIFEST_PATH",
+        tmp_path / "manifest.json",
+    )
+    monkeypatch.setattr(
+        module,
+        "load_vector_store",
+        lambda: existing_store,
+    )
+    monkeypatch.setattr(
+        module,
+        "build_vector_store",
+        lambda docs: build_calls.append(docs),
+    )
+
+    fingerprint = module._documents_fingerprint(documents)
+
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"fingerprint": fingerprint}),
+        encoding="utf-8",
+    )
+
+    result = module.get_or_build_vector_store(documents)
+
+    assert result is existing_store
+    assert build_calls == []
+
+
+def test_rebuilds_vector_store_when_documents_change(
+    monkeypatch,
+    tmp_path,
+):
+    import json
+    import src.rag.vector_store as module
+
+    old_documents = [
+        Document(
+            page_content="Il portale pubblica eventi.",
+            metadata={"filename": "eventi.txt"},
+        )
+    ]
+
+    new_documents = [
+        Document(
+            page_content="Il portale pubblica eventi e servizi.",
+            metadata={"filename": "eventi.txt"},
+        )
+    ]
+
+    expected_store = object()
+    build_calls = []
+
+    def fake_build(documents):
+        build_calls.append(documents)
+        return expected_store
+
+    monkeypatch.setattr(module, "VECTOR_STORE_PATH", tmp_path)
+    monkeypatch.setattr(
+        module,
+        "MANIFEST_PATH",
+        tmp_path / "manifest.json",
+    )
+    monkeypatch.setattr(
+        module,
+        "load_vector_store",
+        lambda: object(),
+    )
+    monkeypatch.setattr(
+        module,
+        "build_vector_store",
+        fake_build,
+    )
+
+    old_fingerprint = module._documents_fingerprint(old_documents)
+
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"fingerprint": old_fingerprint}),
+        encoding="utf-8",
+    )
+
+    result = module.get_or_build_vector_store(new_documents)
+
+    assert result is expected_store
+    assert build_calls == [new_documents]
+
+    updated_manifest = json.loads(
+        (tmp_path / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert updated_manifest["fingerprint"] == (
+        module._documents_fingerprint(new_documents)
+    )
