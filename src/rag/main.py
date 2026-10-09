@@ -2,7 +2,7 @@ from src.rag.rag import answer_question, build_rag
 
 
 def main():
-    vector_store = build_rag()
+    vector_store = build_rag(force_rebuild=True)
 
     result = answer_question(
         "Che cosa raccoglie il portale?",

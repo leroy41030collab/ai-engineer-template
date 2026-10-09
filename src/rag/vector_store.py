@@ -23,10 +23,12 @@ def load_vector_store():
     )
 
 
-def get_or_build_vector_store(documents):
-    vector_store = load_vector_store()
-    if vector_store is not None:
-        return vector_store
+def get_or_build_vector_store(documents, force_rebuild: bool = False):
+    if not force_rebuild:
+        vector_store = load_vector_store()
+        if vector_store is not None:
+            return vector_store
+
     return build_vector_store(documents)
 
 

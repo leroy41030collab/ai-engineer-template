@@ -1,6 +1,7 @@
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.llm.models import get_chat_model
+from src.config.settings import settings
 from src.rag.ingestion import load_documents, split_documents
 from src.rag.vector_store import (
     get_or_build_vector_store,
@@ -9,10 +10,15 @@ from src.rag.vector_store import (
 )
 
 
-def build_rag():
+
+def build_rag(force_rebuild: bool = False):
     documents = load_documents()
     chunks = split_documents(documents)
-    return get_or_build_vector_store(chunks)
+
+    return get_or_build_vector_store(
+        chunks,
+        force_rebuild=force_rebuild,
+    )
 
 
 def retrieve_documents(question: str, vector_store, k: int = 4):
@@ -30,6 +36,11 @@ def answer_question(question: str, vector_store) -> dict:
     sources = []
 
     for document, score in results:
+        score = float(score)
+
+        if score > settings.rag_max_distance:
+            continue
+
         source = document.metadata.get("source", "Fonte sconosciuta")
         filename = document.metadata.get("filename", source)
         chunk_index = document.metadata.get("chunk_index")
@@ -41,9 +52,18 @@ def answer_question(question: str, vector_store) -> dict:
                 "source": source,
                 "filename": filename,
                 "chunk_index": chunk_index,
-                "score": round(float(score), 4),
+                "score": round(score, 4),
             }
         )
+
+    if not context_parts:
+        return {
+            "answer": (
+                "Non ho informazioni sufficienti nei documenti "
+                "disponibili per rispondere a questa domanda."
+            ),
+            "sources": [],
+        }
 
     context = "\n\n".join(context_parts)
 
